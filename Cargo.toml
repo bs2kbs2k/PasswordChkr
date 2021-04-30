@@ -9,5 +9,7 @@ edition = "2018"
 [dependencies]
 futures = "0.3.13"
 hex = "0.4.2"
+iced = "0.3.0"
 sha-1 = "0.9.4"
 surf = { version = "2.1.0", features = ["h1-client-rustls"], default-features = false }
+zxcvbn = "2.1.1"
