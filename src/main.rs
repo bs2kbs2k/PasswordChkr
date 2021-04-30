@@ -1,14 +1,12 @@
-use futures::executor::block_on;
 use hex::ToHex;
 use sha1::{Digest, Sha1};
 use std::str::FromStr;
 
 use iced::{
-    button, executor, progress_bar, text_input, Application, Clipboard, Column, Command, Element,
-    Executor, ProgressBar, Settings, Text,
+    button, executor, text_input, Align, Application, Clipboard, Column, Command, Container,
+    Element, Length, ProgressBar, Settings, Text,
 };
-use std::env;
-use zxcvbn::{zxcvbn, Entropy, ZxcvbnError};
+use zxcvbn::{zxcvbn, Entropy};
 
 struct State {
     password: String,
@@ -74,65 +72,73 @@ impl Application for State {
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
+        let mut root = Column::new()
+            .push(
+                text_input::TextInput::new(
+                    &mut self.password_input,
+                    "Password",
+                    self.password.as_str(),
+                    Message::PasswordChanged,
+                )
+                .padding(8),
+            )
+            .push(ProgressBar::new(
+                0.0..=4.0,
+                self.entropy
+                    .as_ref()
+                    .map(|entropy| f32::from(entropy.score()))
+                    .unwrap_or(0.0),
+            ));
+        match &self.entropy {
+            Ok(entropy) => {
+                root = root.push(Text::new(format!("Score: {}/4", entropy.score())));
+                match entropy.feedback() {
+                    None => {
+                        root = root.push(Text::new("No feedback provided".to_string()));
+                    }
+                    Some(feedback) => {
+                        match feedback.warning() {
+                            None => {}
+                            Some(reason) => {
+                                root =
+                                    root.push(Text::new(format!("Reason: {}", reason.to_string())));
+                            }
+                        };
+                        if !feedback.suggestions().is_empty() {
+                            root = root.push(Text::new("Suggestions:"));
+                            for suggestion in feedback.suggestions() {
+                                root = root.push(Text::new(suggestion.to_string()));
+                            }
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                root = root.push(Text::new(error.to_string()));
+            }
+        }
+        root = root
+            .push(
+                button::Button::new(
+                    &mut self.check_button,
+                    Text::new("Check on pwned passwords"),
+                )
+                .on_press(Message::CheckDatabase),
+            )
+            .push(Text::new(match &self.leak_num {
+                Ok(entropy) => format!("Found {} times", entropy),
+                Err(error) => error.to_string(),
+            }));
         Element::from(
-            Column::new()
-                .push(
-                    text_input::TextInput::new(
-                        &mut self.password_input,
-                        "Password",
-                        self.password.as_str(),
-                        |password| Message::PasswordChanged(password),
-                    )
-                    .padding(8),
-                )
-                .push(ProgressBar::new(
-                    (0.0..=4.0),
-                    *&self
-                        .entropy
-                        .as_ref()
-                        .and_then(|entropy| Ok(f32::from(entropy.score())))
-                        .unwrap_or(0.0),
-                ))
-                .push(Text::new(match &self.entropy {
-                    Ok(entropy) => format!(
-                        "Score:{}/4\nReason: {}\nSuggestions:\n{}",
-                        entropy.score(),
-                        entropy
-                            .feedback()
-                            .as_ref()
-                            .and_then(|feedback| Some(
-                                feedback
-                                    .warning()
-                                    .and_then(|warning| Some(warning.to_string()))
-                                    .unwrap_or("No reason provided".to_string())
-                            ))
-                            .unwrap_or("No feedback provided".to_string()),
-                        entropy
-                            .feedback()
-                            .as_ref()
-                            .and_then(|feedback| Some(
-                                feedback
-                                    .suggestions()
-                                    .iter()
-                                    .map(|suggestion| suggestion.to_string())
-                                    .collect::<Vec<_>>()
-                                    .join("\n")
-                            ))
-                            .unwrap_or("No feedback provided".to_string())
-                    ),
-                    Err(error) => error.to_string(),
-                }))
-                .push(
-                    button::Button::new(
-                        &mut self.check_button,
-                        Text::new("Check on pwned passwords"),
-                    )
-                    .on_press(Message::CheckDatabase),
-                )
-                .push(Text::new(match &self.leak_num {
-                    Ok(entropy) => format!("Found {} times", entropy),
-                    Err(error) => error.to_string(),
-                })),
+            Container::new(
+                Container::new(root)
+                    .width(Length::Units(512))
+                    .height(Length::Units(512)),
+            )
+            .center_x()
+            .center_y()
+            .width(Length::Fill)
+            .height(Length::Fill),
         )
     }
 }
@@ -144,10 +150,10 @@ fn main() -> Result<(), iced::Error> {
 async fn check_pwned_passwords(password: String) -> Result<usize, String> {
     let digest = Sha1::digest(password.as_bytes()).encode_hex_upper::<String>();
     let (prefix, suffix) = digest.split_at(5);
-    surf::get("https://api.pwnedpasswords.com/range/".to_owned() + prefix)
+    reqwest::get("https://api.pwnedpasswords.com/range/".to_owned() + prefix)
         .await
         .map_err(|error| format!("{}", error))?
-        .body_string()
+        .text()
         .await
         .map_err(|error| format!("{}", error))?
         .lines()
@@ -155,6 +161,6 @@ async fn check_pwned_passwords(password: String) -> Result<usize, String> {
         .collect::<Vec<_>>()
         .get(0)
         .map_or(Ok(0), |a| {
-            Ok(usize::from_str(a.split(":").collect::<Vec<_>>().last().unwrap()).unwrap())
+            Ok(usize::from_str(a.split(':').collect::<Vec<_>>().last().unwrap()).unwrap())
         })
 }

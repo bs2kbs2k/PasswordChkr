@@ -7,9 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-futures = "0.3.13"
 hex = "0.4.2"
-iced = "0.3.0"
+iced = { version = "0.3.0", features = ["tokio"] }
+reqwest = "0.11.3"
 sha-1 = "0.9.4"
-surf = { version = "2.1.0", features = ["h1-client-rustls"], default-features = false }
 zxcvbn = "2.1.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# wants js feature or won't compile
+getrandom = { version = "0.2.2", features = ["js"] }
