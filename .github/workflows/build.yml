@@ -11,9 +11,9 @@
           with:
             toolchain: stable
         - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+          with:
+            command: build
+            args: --release
     build-linux:
       runs-on: ubuntu-latest
       steps:
@@ -22,9 +22,9 @@
           with:
             toolchain: stable
         - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+          with:
+            command: build
+            args: --release
     build-mac:
       runs-on: macos-latest
       steps:
@@ -33,6 +33,6 @@
           with:
             toolchain: stable
         - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+          with:
+            command: build
+            args: --release
