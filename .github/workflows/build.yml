@@ -16,8 +16,8 @@
             args: --release
         - uses: actions/upload-artifact@v2
           with:
-            name: executable
-            path: target/release/
+            name: windows-exe
+            path: target/release/PasswordChkr.exe
     build-linux:
       runs-on: ubuntu-latest
       steps:
@@ -31,8 +31,8 @@
             args: --release
         - uses: actions/upload-artifact@v2
           with:
-            name: executable
-            path: target/release/
+            name: linux-bin
+            path: target/release/PasswordChkr
     build-mac:
       runs-on: macos-latest
       steps:
@@ -46,5 +46,5 @@
             args: --release
         - uses: actions/upload-artifact@v2
           with:
-            name: executable
-            path: target/release/
+            name: macos-bin
+            path: target/release/PasswordChkr
